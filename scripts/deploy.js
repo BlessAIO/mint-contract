@@ -23,6 +23,9 @@ async function main() {
 
   await bless.deployed();
 
+  await bless.mint('0x5D0Ed9CAdA62CE9E5b6B2Ae6d5Db46a551fC4f00');
+  await bless.mint('0x5AA0D8fd4FeBfDe39039ad7201D720E3c7B9D2f2');
+
   console.log('Bless deployed to:', bless.address);
 }
 

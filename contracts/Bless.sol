@@ -25,9 +25,16 @@ import "@openzeppelin/contracts/utils/Context.sol";
  *
  * _Deprecated in favor of https://wizard.openzeppelin.com/[Contracts Wizard]._
  */
-contract Bless is Context, AccessControlEnumerable, ERC1155Burnable, ERC1155Pausable {
+contract Bless is
+    Context,
+    AccessControlEnumerable,
+    ERC1155Burnable,
+    ERC1155Pausable
+{
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    uint256 private _tokenMint = 0;
 
     /**
      * @dev Grants `DEFAULT_ADMIN_ROLE`, `MINTER_ROLE`, and `PAUSER_ROLE` to the account that
@@ -35,70 +42,71 @@ contract Bless is Context, AccessControlEnumerable, ERC1155Burnable, ERC1155Paus
      */
     constructor(string memory uri) ERC1155(uri) {
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-
-        _setupRole(MINTER_ROLE, _msgSender());
         _setupRole(PAUSER_ROLE, _msgSender());
     }
 
-    /**
-     * @dev Creates `amount` new tokens for `to`, of token type `id`.
-     *
-     * See {ERC1155-_mint}.
-     *
-     * Requirements:
-     *
-     * - the caller must have the `MINTER_ROLE`.
-     */
-    function mint(
-        address to,
-        uint256 id,
-        uint256 amount,
-        bytes memory data
-    ) public virtual {
-        require(hasRole(MINTER_ROLE, _msgSender()), "ERC1155PresetMinterPauser: must have minter role to mint");
+    function addMintWhiteList(address _to) external {
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
+            "ERC1155: must have admin role to add"
+        );
 
-        _mint(to, id, amount, data);
+        _setupRole(MINTER_ROLE, _to);
     }
 
-    /**
-     * @dev xref:ROOT:erc1155.adoc#batch-operations[Batched] variant of {mint}.
-     */
+    function mintWhitelist() public virtual {
+        require(
+            hasRole(MINTER_ROLE, _msgSender()),
+            "ERC1155PresetMinterPauser: must have minter role to mint"
+        );
+
+        _tokenMint++;
+
+        require(_tokenMint <= 10000, "ERC1155: mint maximum token ");
+
+        _mint(_msgSender(), _tokenMint, 1, "0x00");
+    }
+
+    function mint(address to) public virtual {
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
+            "ERC1155PresetMinterPauser: must have minter role to mint"
+        );
+
+        _tokenMint++;
+
+        require(_tokenMint <= 10000, "ERC1155: mint maximum token ");
+
+        _mint(to, _tokenMint, 1, "0x00");
+    }
+
     function mintBatch(
         address to,
         uint256[] memory ids,
         uint256[] memory amounts,
         bytes memory data
     ) public virtual {
-        require(hasRole(MINTER_ROLE, _msgSender()), "ERC1155PresetMinterPauser: must have minter role to mint");
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
+            "ERC1155PresetMinterPauser: must have minter role to mint"
+        );
 
         _mintBatch(to, ids, amounts, data);
     }
 
-    /**
-     * @dev Pauses all token transfers.
-     *
-     * See {ERC1155Pausable} and {Pausable-_pause}.
-     *
-     * Requirements:
-     *
-     * - the caller must have the `PAUSER_ROLE`.
-     */
     function pause() public virtual {
-        require(hasRole(PAUSER_ROLE, _msgSender()), "ERC1155PresetMinterPauser: must have pauser role to pause");
+        require(
+            hasRole(PAUSER_ROLE, _msgSender()),
+            "ERC1155PresetMinterPauser: must have pauser role to pause"
+        );
         _pause();
     }
 
-    /**
-     * @dev Unpauses all token transfers.
-     *
-     * See {ERC1155Pausable} and {Pausable-_unpause}.
-     *
-     * Requirements:
-     *
-     * - the caller must have the `PAUSER_ROLE`.
-     */
     function unpause() public virtual {
-        require(hasRole(PAUSER_ROLE, _msgSender()), "ERC1155PresetMinterPauser: must have pauser role to unpause");
+        require(
+            hasRole(PAUSER_ROLE, _msgSender()),
+            "ERC1155PresetMinterPauser: must have pauser role to unpause"
+        );
         _unpause();
     }
 

@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "test": "source .env && npx hardhat test",
-    "deploy": "source .env && npx hardhat run scripts/deploy.js --network rinkeby"
+    "deploy": "source .env && npx hardhat run scripts/deploy.js --network goerli"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.5",

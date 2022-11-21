@@ -78,20 +78,6 @@ contract Bless is
         _mint(to, _tokenMint, 1, "0x00");
     }
 
-    function mintBatch(
-        address to,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory data
-    ) public virtual {
-        require(
-            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
-            "ERC1155PresetMinterPauser: must have minter role to mint"
-        );
-
-        _mintBatch(to, ids, amounts, data);
-    }
-
     function pause() public virtual {
         require(
             hasRole(PAUSER_ROLE, _msgSender()),

@@ -37,16 +37,35 @@ contract Bless is
 
     uint256 private _tokenMint = 0;
     bool private _publicSale = false;
+    bool private _whitelistSale = false;
 
     mapping(address => uint256) private _totalAccountPurchase;
 
     /**
      * @dev Grants `DEFAULT_ADMIN_ROLE`, `WHITELIST_ROLE`, and `PAUSER_ROLE` to the account that
      * deploys the contract.
-     */
+    */
     constructor(string memory uri) ERC1155(uri) {
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(PAUSER_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(PAUSER_ROLE, _msgSender());
+    }
+
+    function setWhitelistSale() external {
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
+            "ERC1155: must have admin role to add"
+        );
+
+        _whitelistSale = !_whitelistSale;
+    }
+
+    function setPublicSale() external {
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
+            "ERC1155: must have admin role to add"
+        );
+
+        _publicSale = !_publicSale;
     }
 
     function addAccountWhitelist(address _to) external {
@@ -55,18 +74,24 @@ contract Bless is
             "ERC1155: must have admin role to add"
         );
 
-        _setupRole(WHITELIST_ROLE, _to);
+        _grantRole(WHITELIST_ROLE, _to);
     }
 
     function mint() public virtual {
         if(hasRole(WHITELIST_ROLE, _msgSender())){
+            require(
+                _whitelistSale == true,
+                "ERC1155: whitelist sale no is active"
+            );
+
             _mintToken(_msgSender());
             _revokeRole(WHITELIST_ROLE, _msgSender());
-        }else {
+        } else {
             require(
                 _publicSale == true,
                 "ERC1155: public sale no is active"
             );
+
             require(
                 _totalAccountPurchase[_msgSender()] > 3,
                 "ERC1155: public sale no is active"
@@ -75,14 +100,6 @@ contract Bless is
             _totalAccountPurchase[_msgSender()] = _totalAccountPurchase[_msgSender()].add(1);
             _mintToken(_msgSender());
         }
-    }
-
-    function _mintToken(address to) internal virtual {
-        _tokenMint++;
-
-        require(_tokenMint <= 10000, "ERC1155: mint maximum token ");
-
-        _mint(to, _tokenMint, 1, "0x00");
     }
 
     function pause() public virtual {
@@ -99,6 +116,14 @@ contract Bless is
             "ERC1155PresetMinterPauser: must have pauser role to unpause"
         );
         _unpause();
+    }
+
+    function _mintToken(address to) internal virtual {
+        _tokenMint++;
+
+        require(_tokenMint <= 10000, "ERC1155: mint maximum token ");
+
+        _mint(to, _tokenMint, 1, "0x00");
     }
 
     /**

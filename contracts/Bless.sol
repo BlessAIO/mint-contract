@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @dev {ERC1155} token, including:
@@ -29,13 +30,18 @@ contract Bless is
     AccessControlEnumerable,
     ERC1155Pausable
 {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    using SafeMath for uint256;
+
+    bytes32 public constant WHITELIST_ROLE = keccak256("WHITELIST_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     uint256 private _tokenMint = 0;
+    bool private _publicSale = false;
+
+    mapping(address => uint256) private _totalAccountPurchase;
 
     /**
-     * @dev Grants `DEFAULT_ADMIN_ROLE`, `MINTER_ROLE`, and `PAUSER_ROLE` to the account that
+     * @dev Grants `DEFAULT_ADMIN_ROLE`, `WHITELIST_ROLE`, and `PAUSER_ROLE` to the account that
      * deploys the contract.
      */
     constructor(string memory uri) ERC1155(uri) {
@@ -43,34 +49,35 @@ contract Bless is
         _setupRole(PAUSER_ROLE, _msgSender());
     }
 
-    function addMintWhiteList(address _to) external {
+    function addAccountWhitelist(address _to) external {
         require(
             hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
             "ERC1155: must have admin role to add"
         );
 
-        _setupRole(MINTER_ROLE, _to);
+        _setupRole(WHITELIST_ROLE, _to);
     }
 
-    function mintWhitelist() public virtual {
-        require(
-            hasRole(MINTER_ROLE, _msgSender()),
-            "ERC1155PresetMinterPauser: must have minter role to mint"
-        );
+    function mint() public virtual {
+        if(hasRole(WHITELIST_ROLE, _msgSender())){
+            _mintToken(_msgSender());
+            _revokeRole(WHITELIST_ROLE, _msgSender());
+        }else {
+            require(
+                _publicSale == true,
+                "ERC1155: public sale no is active"
+            );
+            require(
+                _totalAccountPurchase[_msgSender()] > 3,
+                "ERC1155: public sale no is active"
+            );
 
-        _tokenMint++;
-
-        require(_tokenMint <= 10000, "ERC1155: mint maximum token ");
-
-        _mint(_msgSender(), _tokenMint, 1, "0x00");
+            _totalAccountPurchase[_msgSender()] = _totalAccountPurchase[_msgSender()].add(1);
+            _mintToken(_msgSender());
+        }
     }
 
-    function mint(address to) public virtual {
-        require(
-            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
-            "ERC1155PresetMinterPauser: must have minter role to mint"
-        );
-
+    function _mintToken(address to) internal virtual {
         _tokenMint++;
 
         require(_tokenMint <= 10000, "ERC1155: mint maximum token ");

@@ -1,139 +1,104 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.5.0) (token/ERC1155/presets/ERC1155PresetMinterPauser.sol)
+pragma solidity ^0.8.13;
 
-pragma solidity ^0.8.0;
+import {DefaultOperatorFilterer} from "operator-filter-registry/src/DefaultOperatorFilterer.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {ERC1155Pausable} from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-/**
- * @dev {ERC1155} token, including:
- *
- *  - ability for holders to burn (destroy) their tokens
- *  - a minter role that allows for token minting (creation)
- *  - a pauser role that allows to stop all token transfers
- *
- * This contract uses {AccessControl} to lock permissioned functions using the
- * different roles - head to its documentation for details.
- *
- * The account that deploys the contract will be granted the minter and pauser
- * roles, as well as the default admin role, which will let it grant both minter
- * and pauser roles to other accounts.
- *
- * _Deprecated in favor of https://wizard.openzeppelin.com/[Contracts Wizard]._
- */
-contract Bless is
-    Context,
-    AccessControlEnumerable,
-    ERC1155Pausable
-{
-    using SafeMath for uint256;
+abstract contract BlessAIO is ERC1155("https://blessaio/api/item/{id}.json"), DefaultOperatorFilterer, Ownable, ERC1155Pausable {
+    mapping(address => bool) public whitelist;
 
-    bytes32 public constant WHITELIST_ROLE = keccak256("WHITELIST_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    // The number of accounts we want to have in our whitelist.
+    uint256 public maxNumberOfWhitelistedAddresses;
 
-    uint256 private _tokenMint = 0;
-    bool private _publicSale = false;
+    // Track the number of whitelisted addresses.
+    uint256 public numberOfAddressesWhitelisted;
+
+    // The mint process 
+    uint256 private _tokenMint; 
     bool private _whitelistSale = false;
+    bool private _publicSale = false;
 
-    mapping(address => uint256) private _totalAccountPurchase;
-
-    /**
-     * @dev Grants `DEFAULT_ADMIN_ROLE`, `WHITELIST_ROLE`, and `PAUSER_ROLE` to the account that
-     * deploys the contract.
-    */
-    constructor(string memory uri) ERC1155(uri) {
-        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _grantRole(PAUSER_ROLE, _msgSender());
+    constructor(uint256 _maxWhitelistedAddresses) {
+        maxNumberOfWhitelistedAddresses = _maxWhitelistedAddresses;
     }
 
-    function setWhitelistSale() external {
-        require(
-            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
-            "ERC1155: must have admin role to add"
-        );
-
-        _whitelistSale = !_whitelistSale;
-    }
-
-    function setPublicSale() external {
-        require(
-            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
-            "ERC1155: must have admin role to add"
-        );
-
+    function setPublicSale() external onlyOwner {
         _publicSale = !_publicSale;
     }
 
-    function addAccountWhitelist(address _to) external {
-        require(
-            hasRole(DEFAULT_ADMIN_ROLE, _msgSender()),
-            "ERC1155: must have admin role to add"
-        );
-
-        _grantRole(WHITELIST_ROLE, _to);
+    function setWhitelistSale() external onlyOwner {
+        _whitelistSale = !_whitelistSale;
     }
 
-    function mint() public virtual {
-        if(hasRole(WHITELIST_ROLE, _msgSender())){
-            require(
-                _whitelistSale == true,
-                "ERC1155: whitelist sale no is active"
-            );
-
-            _mintToken(_msgSender());
-            _revokeRole(WHITELIST_ROLE, _msgSender());
-        } else {
-            require(
-                _publicSale == true,
-                "ERC1155: public sale no is active"
-            );
-
-            require(
-                _totalAccountPurchase[_msgSender()] > 3,
-                "ERC1155: public sale no is active"
-            );
-
-            _totalAccountPurchase[_msgSender()] = _totalAccountPurchase[_msgSender()].add(1);
-            _mintToken(_msgSender());
+    function addToWhitelist(address[] calldata addAddresses) external onlyOwner {
+        for (uint i = 0; i < addAddresses.length; i++) {
+            whitelist[addAddresses[i]] = true;
         }
     }
 
-    function pause() public virtual {
-        require(
-            hasRole(PAUSER_ROLE, _msgSender()),
-            "ERC1155PresetMinterPauser: must have pauser role to pause"
-        );
-        _pause();
+    function removeFromWhitelist(address[] calldata removeAddresses) external onlyOwner {
+        for (uint i = 0; i < removeAddresses.length; i++) {
+            delete whitelist[removeAddresses[i]];
+        }
     }
 
-    function unpause() public virtual {
-        require(
-            hasRole(PAUSER_ROLE, _msgSender()),
-            "ERC1155PresetMinterPauser: must have pauser role to unpause"
-        );
-        _unpause();
+    function mint() external virtual {
+      if(whitelist[_msgSender()] == true){
+          require(
+              _whitelistSale == true,
+              "ERC1155: whitelist sale no is active"
+          );
+
+          _mintToken(_msgSender());
+          delete whitelist[_msgSender()];
+      } else {
+          require(
+              _publicSale == true,
+              "ERC1155: public sale no is active"
+          );
+          _mintToken(_msgSender());
+      }
     }
 
-    function _mintToken(address to) internal virtual {
-        _tokenMint++;
-
-        require(_tokenMint <= 10000, "ERC1155: mint maximum token ");
-
-        _mint(to, _tokenMint, 1, "0x00");
+    function pause() public onlyOwner virtual {
+      _pause();
     }
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
+    function unpause() public onlyOwner virtual {
+      _unpause();
+    }
+
+    function setApprovalForAll(address operator, bool approved) public override onlyAllowedOperatorApproval(operator) 
+    {
+        super.setApprovalForAll(operator, approved);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, uint256 amount, bytes memory data)
+        public
+        override
+        onlyAllowedOperator(from)
+    {
+        super.safeTransferFrom(from, to, tokenId, amount, data);
+    }
+
+    function safeBatchTransferFrom(
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    ) public virtual override onlyAllowedOperator(from) {
+        super.safeBatchTransferFrom(from, to, ids, amounts, data);
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
         virtual
-        override(AccessControlEnumerable, ERC1155)
+        override(ERC1155)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -148,5 +113,13 @@ contract Bless is
         bytes memory data
     ) internal virtual override(ERC1155, ERC1155Pausable) {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+    }
+
+    function _mintToken(address to) internal virtual {
+      _tokenMint++;
+
+      require(_tokenMint <= 10000, "ERC1155: mint maximum token");
+
+      _mint(to, _tokenMint, 1, "0x00");
     }
 }
